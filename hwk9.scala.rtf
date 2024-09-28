@@ -1,0 +1,88 @@
+//Marawan Salama
+
+trait Color
+case object Red extends Color { override def toString = "red" }
+case object Black extends Color { override def toString = "black" }
+
+trait Tree[X <: Ordered[X]] {
+  def contains(e: X): Boolean
+  def ins(e: X): Tree[X]
+
+  def insert(e: X): Tree[X] =
+    ins(e) match {
+      case Node(_, y, a, b) => Node(Black, y, a, b)
+    }
+
+  def node(i: Int): (List[String], List[String], Int) = this match {
+    case Leaf() => (List(s"node$i[label = ${'"'}L${'"'}]"), Nil, i+1)
+    case Node(color, x, left, right) => {
+        val (l1, e1, i1) = left.node(i+1)
+        val (l2, e2, i2) = right.node(i1+1)
+        (s"node$i[label = ${'"'}<left>|<middle> $x|<right>${'"'} color = $color]" :: l1 ++ l2,
+         s"${'"'}node$i${'"'}:left -> ${'"'}node${i+1}${'"'}:middle" ::
+         s"${'"'}node$i${'"'}:right -> ${'"'}node${i1+1}${'"'}:middle" :: e1 ++ e2, i2)
+      }
+  }
+
+  def dotgraph = {
+    val (nodes, edges, _) = node(0)
+    s"digraph g {\nnode [shape = record,height=.1];\n${nodes.mkString(";\n")};\n${edges.mkString(";\n")};\n}"
+  }
+}
+
+case class Leaf[X <: Ordered[X]]() extends Tree[X] {
+  def contains(e: X) = false
+  def ins(e: X) = Node(Red, e, Leaf(), Leaf())
+  override def toString = "L"
+}
+
+case class Node[X <: Ordered[X]](color: Color, x: X, left: Tree[X], right: Tree[X]) extends Tree[X] {
+  def contains(e: X): Boolean =
+    e.compare(x) match {
+      case 0 => true
+      case c if c < 0 => left.contains(e)
+      case _ => right.contains(e)
+    }
+
+  def ins(e: X): Tree[X] = {
+    e.compare(x) match {
+      case c if c < 0 => Node(color, x, left.ins(e), right).balance
+      case c if c > 0 => Node(color, x, left, right.ins(e)).balance
+      case _ => this 
+    }
+  }
+
+  def balance: Tree[X] = this match {
+  case Node(Black, z, Node(Red, y, Node(Red, x, a, b), c), d) =>
+    Node(Red, y, Node(Black, x, a, b), Node(Black, z, c, d))
+  case Node(Black, z, Node(Red, x, a, Node(Red, y, b, c)), d) =>
+    Node(Red, y, Node(Black, x, a, b), Node(Black, z, c, d))
+  case Node(Black, x, a, Node(Red, z, b, Node(Red, y, c, d))) =>
+    Node(Red, z, Node(Black, x, a, b), Node(Black, y, c, d))
+  case Node(Black, x, a, Node(Red, y, Node(Red, z, b, c), d)) =>
+    Node(Red, z, Node(Black, x, a, b), Node(Black, y, c, d))
+  case _ => this
+}
+  override def toString = "(" + left + ", " + x + ":" + color + ", " + right + ")"
+}
+
+case class OrderedInt(i: Int) extends Ordered[OrderedInt] {
+  def compare(that: OrderedInt) = i - that.i
+  override def toString = i.toString
+}
+
+object RedBlackTree {
+  def buildTree[X<:Ordered[X]] (input: List[X], root: Tree[X]) = input.foldLeft[Tree[X]](root)((l, i) => l.insert(i))
+  
+def main(args: Array[String]): Unit = {
+    val input = List(3, 4, 2, 10, 9, 1, 5, 6, 11, 12, 13, 14, 15, 17, 7).map(OrderedInt)
+    val t1 = buildTree(input.slice(0,4), Leaf[OrderedInt]())
+    println(t1.dotgraph)
+    val t2 = buildTree(input.slice(4,8), t1)
+    println(t2.dotgraph)
+    val t3 = buildTree(input.slice(8,12), t2)
+    println(t3.dotgraph)
+    val t4 = buildTree(input.slice(12,15), t3)
+    println(t4.dotgraph)
+  }
+}
